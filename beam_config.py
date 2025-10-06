@@ -143,3 +143,10 @@ table_schema = 'customer_id:STRING,date:STRING,timestamp:STRING,order_id:STRING,
 	additional_bq_parameters={'timePartitioning': {'type': 'DAY'}}
 	)
 )
+
+from apache_beam.runners.runner import PipelineState
+ret= p.run()
+if ret.state == PipelineState.DONE:
+    print("Pipeline executed successfully")
+else:
+    print("Pipeline failed with state")
