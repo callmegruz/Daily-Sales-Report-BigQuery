@@ -1,6 +1,12 @@
+#project-id:dataset_id.table_id
+delivered_table_spec = 'bigquery-demo-285417:dataset_food_orders.delivered_orders'
+#project-id:dataset_id.table_id
+other_table_spec = 'bigquery-demo-285417:dataset_food_orders.other_status_orders'
+
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions, StandardOptions
 import argparse
+from google.cloud import bigquery
 
 parser = argparse.ArgumentParser()
 
@@ -78,3 +84,62 @@ other_orders = (
  | 'other map' >> beam.Map(lambda x: 'Others count:'+str(x))
  | 'print undelivered' >> beam.Map(print_row)
  )
+
+# BigQuery 
+client = bigquery.Client()
+
+dataset_id = "{}.dataset_for_orders".format(client.project)
+
+try:
+	client.get_dataset(dataset_id)
+	
+except:
+	dataset = bigquery.Dataset(dataset_id)  #
+
+	dataset.location = "US"
+	dataset.description = "dataset for food orders"
+
+	dataset_ref = client.create_dataset(dataset, timeout=30)  # Make an API request.
+     
+def to_json(csv_str):
+    fields = csv_str.split(',')
+    
+    json_str = {"customer_id":fields[0],
+                 "date": fields[1],
+                 "timestamp": fields[2],
+                 "order_id": fields[3],
+                 "items": fields[4],
+                 "amount": fields[5],
+                 "mode": fields[6],
+                 "restaurant": fields[7],
+                 "status": fields[8],
+                 "ratings": fields[9],
+                 "feedback": fields[10],
+                 "new_col": fields[11]
+                 }
+
+    return json_str
+
+table_schema = 'customer_id:STRING,date:STRING,timestamp:STRING,order_id:STRING,items:STRING,amount:STRING,mode:STRING,restaurant:STRING,status:STRING,ratings:STRING,feedback:STRING,new_col:STRING'
+
+(delivered_orders
+	| 'delivered to json' >> beam.Map(to_json)
+	| 'write delivered' >> beam.io.WriteToBigQuery(
+	delivered_table_spec,
+	schema=table_schema,
+	create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
+	write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND,
+	additional_bq_parameters={'timePartitioning': {'type': 'DAY'}}
+	)
+)
+
+(other_orders
+	| 'others to json' >> beam.Map(to_json)
+	| 'write other_orders' >> beam.io.WriteToBigQuery(
+	other_table_spec,
+	schema=table_schema,
+	create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
+	write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND,
+	additional_bq_parameters={'timePartitioning': {'type': 'DAY'}}
+	)
+)
