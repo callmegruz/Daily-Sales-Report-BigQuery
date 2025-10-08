@@ -150,3 +150,17 @@ if ret.state == PipelineState.DONE:
     print("Pipeline executed successfully")
 else:
     print("Pipeline failed with state")
+
+view_name = ('daily_food_orders')
+dataset_ref= client.dataset('dataset_food_orders')
+view_ref = dataset_ref.table(view_name)
+view_to_create= bigquery.Table(view_ref)
+
+view_to_create.view_query = 'select * from `bigquery-demo-473206.dataset_food_orders.delivered_orders` where date _PARTITIONDATE = DATE(current_date())'
+view_to_create.view_use_legacy_sql = False
+
+try:
+    view = client.create_table(view_to_create)  # Make an API request.
+
+except:
+    print("View already exists")
